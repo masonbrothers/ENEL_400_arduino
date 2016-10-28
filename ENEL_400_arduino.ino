@@ -1,6 +1,5 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include "dht.h" //Temperature and Humidity Sensor
 
 #define BUZZER_PIN                                        1
 #define PUMP_PIN                                          2
@@ -22,11 +21,6 @@ OneWire oneWire(WATER_THERMOMETER_DALLAS_ONE_WIRE_PIN);
 
 DallasTemperature sensors(&oneWire);
 
-float AmbientTemperature;
-float AmbientHumidity;
-boolean validAmbientTemperatureHumidity = true; //Boolean to detect whether or not Reading was valid
-
-
 float waterLevelSensorResistance()
 {
   float value;
@@ -44,10 +38,8 @@ void setup() {
   pinMode(PUMP_PIN, OUTPUT);
   startPump();
   */
-  dht.begin();
-  sensors.begin();
   Serial.begin(9600);
-
+  sensors.begin();
   
 }
 
@@ -57,25 +49,6 @@ void loop() {
   Serial.print((String)sensors.getTempCByIndex(0) + "\n");
   delay(1000);
 }
-
-void ReadAmbientTemperatureAndHumidity()
-{
-   //Sensor requires a delay of atleast 2 seconds to work
-   delay(2000);
-   
-   AmbientTemperature = dht.readTemperature();
-   AmbientHumidity = dht.readHumidity();
-   
-   //If Ambient Temperature and Humidity Readings are garbage output an error message
-   if (isnan(AmbientTemperature) || isnan(AmbientHumidity) ||  
-   {
-    Serial.println("Ambient Temperature and Humidity Sensor Failed!");
-    validAmbientTemperatureHumidity = false;
-    return;
-   }
-} 
-
-
 /*
 bool saveData(SensorData sensorData) {
   
