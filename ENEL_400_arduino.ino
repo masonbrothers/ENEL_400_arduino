@@ -16,25 +16,29 @@
 #include <Adafruit_Sensor.h>
 #include "Adafruit_TSL2591.h"
 
+#include <SoftwareSerial.h>
+
 #define BUZZER_PIN                                        4 // ???
-#define PUMP_PIN                                          3
+#define PUMP_PIN                                          12
 #define ESP8266_TX_ARDUINO_RX_PIN                         
 #define ESP8266_RX_ARDUINO_TX_PIN                             
 #define ESP8266_RESET_PIN                                     
-#define WATER_THERMOMETER_DALLAS_ONE_WIRE_PIN             3 // ???
-#define AMBIENT_THERMOMETER_DALLAS_ONE_WIRE_PIN           4 // ???
+#define WATER_THERMOMETER_DALLAS_ONE_WIRE_PIN             5
 #define WATER_LEVEL_ANALOG_PIN                            A1 // ???
 #define WATER_LEVEL_RESISTOR_VALUE                        560 // Value of the resistor added in ohms    
 #define MAX_RESOLUTION                                    1023
 #define ADAFRUIT_DATA_LOGGING_SHIELD_CHIP_SELECT          10
 // Note that this pin needs a 10K pullup Resistor 
-#define AMBIENT_TEMPERATURE_HUMIDITY_SENSOR_PIN           5 // ???
+#define AMBIENT_TEMPERATURE_HUMIDITY_SENSOR_PIN           4
 #define AMBIENT_TEMPERATURE_HUMIDITY_SENSOR_TYPE          DHT22
 #define LUMINOSITY_SCL_PIN                                A5
 #define LUMINOSITY_SDA_PIN                                A4
 #define DATA_FILE_NAME                                    "AQUA_DATA.TXT"
 #define LOG_FILE_NAME                                     "AQUA_LOG.TXT"
 #define TSL2591_NUMBER                                    2591
+
+#define SOFTWARE_SERIAL_ARDUINO_TX_OTHER_RX               9
+#define SOFTWARE_SERIAL_ARDUINO_RX_OTHER_TX               8
 
 OneWire oneWire(WATER_THERMOMETER_DALLAS_ONE_WIRE_PIN);
 
@@ -45,6 +49,8 @@ DHT dht(AMBIENT_TEMPERATURE_HUMIDITY_SENSOR_PIN, AMBIENT_TEMPERATURE_HUMIDITY_SE
 RTC_PCF8523 rtc;
 
 Adafruit_TSL2591 tsl = Adafruit_TSL2591(TSL2591_NUMBER);
+
+SoftwareSerial esp8266Serial(SOFTWARE_SERIAL_ARDUINO_RX_OTHER_TX, SOFTWARE_SERIAL_ARDUINO_TX_OTHER_RX); // RX, TX
 
 struct AmbientTemperatureHumidity
 {
@@ -58,6 +64,8 @@ boolean validAmbientTemperatureHumidity = true; //Boolean to detect whether or n
 
 void setup() {
   Serial.begin(9600);
+  esp8266Serial.begin(9600);
+
   
   setupBuzzer();
   stopBuzzer();
@@ -85,10 +93,11 @@ void setup() {
     Serial.println("Failed to initialize the RTC.");
     writeToSDCardLog("Failed to initialize the RTC.");
   }
+
 }
 
 void loop() {
-  
+
   delay(2000);
 
   Serial.println("Water Temp:\t" + (String)getWaterTemperature() + "degC");
@@ -111,10 +120,24 @@ void loop() {
     Serial.println("Cannot write to " + (String)DATA_FILE_NAME);
   }
 
-  Serial.println("Visible light: " + (String)getVisibleLight() + " lux");
-  
+  int visibleLight = getVisibleLight();
+
+  Serial.println("Visible light: " + (String)visibleLight + " lux");
+  esp8266Serial.print((String)visibleLight);
   Serial.println("IR light: " + (String)getIRLight() + " lux");
+
+  if (esp8266Serial.available()) {
+    Serial.write(esp8266Serial.read());
+  }
+  if (Serial.available()) {
+    esp8266Serial.write(Serial.read());
+  }
+
   
+}
+
+void sendToESP8266()
+{
   
 }
 
