@@ -1,5 +1,3 @@
-#include <Adafruit_RGBLCDShield.h>
-
 // For Water Temperature Probe
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -19,6 +17,9 @@
 #include "Adafruit_TSL2591.h"
 
 #include <SoftwareSerial.h>
+
+#include <Adafruit_RGBLCDShield.h>
+#include <utility/Adafruit_MCP23017.h>
 
 #define BUZZER_PIN                                        4 // ???
 #define PUMP_PIN                                          12
@@ -66,6 +67,18 @@ boolean validAmbientTemperatureHumidity = true; //Boolean to detect whether or n
 
 boolean pumpIsOn;
 
+Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
+
+#define RED 0x1
+#define YELLOW 0x3
+#define GREEN 0x2
+#define TEAL 0x6
+#define BLUE 0x4
+#define VIOLET 0x5
+#define WHITE 0x7
+
+
+
 void setup() {
   Serial.begin(9600);
   esp8266Serial.begin(9600);
@@ -80,6 +93,10 @@ void setup() {
   setupLightSensor();
   
   setupWaterTemperatureSensor();
+
+  lcd.print("Hello, world!");
+  lcd.setBacklight(WHITE);
+  
   if (setupSDCard())
     Serial.println("Initialized SD Card.");
   else
