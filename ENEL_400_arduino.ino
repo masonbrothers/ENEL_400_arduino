@@ -1,3 +1,5 @@
+#include <Adafruit_RGBLCDShield.h>
+
 // For Water Temperature Probe
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -33,8 +35,8 @@
 #define AMBIENT_TEMPERATURE_HUMIDITY_SENSOR_TYPE          DHT22
 #define LUMINOSITY_SCL_PIN                                A5
 #define LUMINOSITY_SDA_PIN                                A4
-#define DATA_FILE_NAME                                    "AQUA_DATA.TXT"
-#define LOG_FILE_NAME                                     "AQUA_LOG.TXT"
+#define DATA_FILE_NAME                                    "AQUADATA.TXT"
+#define LOG_FILE_NAME                                     "AQUALOG.TXT"
 #define TSL2591_NUMBER                                    2591
 
 #define SOFTWARE_SERIAL_ARDUINO_TX_OTHER_RX               9
@@ -61,6 +63,8 @@ struct AmbientTemperatureHumidity
 
 
 boolean validAmbientTemperatureHumidity = true; //Boolean to detect whether or not Reading was valid
+
+boolean pumpIsOn;
 
 void setup() {
   Serial.begin(9600);
@@ -100,10 +104,11 @@ void loop() {
 
   delay(2000);
 
-  Serial.println("Water Temp:\t" + (String)getWaterTemperature() + "degC");
+  float waterTemperature = getWaterTemperature();
+  //Serial.println("Water Temp:\t" + (String)waterTemperature + "degC");
 
   AmbientTemperatureHumidity ambientTemperatureHumidity = readAmbientTemperatureAndHumidity();
-  if (ambientTemperatureHumidity.valid)
+  /*if (ambientTemperatureHumidity.valid)
   {
     Serial.println((String)ambientTemperatureHumidity.ambientTemperature + "degC\t" + (String)ambientTemperatureHumidity.ambientHumidity + "%");
   }
@@ -112,33 +117,57 @@ void loop() {
     Serial.println("Ambient Temperature and Humidity Sensor Not Working!!!");
     writeToSDCardLog("Ambient Temperature and Humidity Sensor Not Working!!!");
   }
-
-  Serial.println(getRTCStringTime());
-  
+  */
+  String Time = getRTCStringTime();
+  //Serial.println(Time);
+  /*
   if (!writeToSDCard(DATA_FILE_NAME, "Greatness!!!"))
   {
     Serial.println("Cannot write to " + (String)DATA_FILE_NAME);
   }
-
+  */
   int visibleLight = getVisibleLight();
-
+  /*
   Serial.println("Visible light: " + (String)visibleLight + " lux");
-  esp8266Serial.print((String)visibleLight);
-  Serial.println("IR light: " + (String)getIRLight() + " lux");
 
+  Serial.println("IR light: " + (String)getIRLight() + " lux");
+  */
+  int waterLevelResistance = waterLevelSensorResistance();
+
+  
+  printToESP("pumpIsOn:" + (String)(int)pumpIsOn);
+  printToESP("realTimeAmbientHumidity:" + (String)ambientTemperatureHumidity.ambientHumidity);
+  printToESP("realTimeAmbientLight:" + (String)visibleLight);
+  printToESP("realTimeAmbientTemperature:" + (String)ambientTemperatureHumidity.ambientTemperature);
+  //esp8266Serial.print("realTimeSpillSensor:" + (String)visibleLight);
+  printToESP("realTimeTime:" + Time);
+  printToESP("realTimeWaterLevel:" + (String)waterLevelResistance);
+  printToESP("realTimeWaterTemperature:" + (String)waterTemperature);
+  esp8266Serial.print("PUMP");
   if (esp8266Serial.available()) {
     Serial.write(esp8266Serial.read());
   }
-  if (Serial.available()) {
-    esp8266Serial.write(Serial.read());
-  }
-
   
 }
 
-void sendToESP8266()
-{
+bool printToESP(String input) {
+  /*int count = 100;
+  while (!esp8266Serial.available() && count > 0 )
+  {
+    count --;
+    delay(10);// Wait until Serial is available
+  }
+  if (count > 0)
+  {
+    esp8266Serial.println(input);
+    return 1;
+  }
+  */
+  delay(4000);
+  esp8266Serial.println(input);
   
+  
+  return 0;
 }
 
 void setupLightSensor()
@@ -242,6 +271,17 @@ AmbientTemperatureHumidity readAmbientTemperatureAndHumidity()
     ambientTemperatureHumidity.valid = true;
   }
 
+  if (isnan(ambientTemperatureHumidity.ambientTemperature))
+  {
+    ambientTemperatureHumidity.ambientTemperature = -300;
+  }
+
+  
+  if (isnan(ambientTemperatureHumidity.ambientHumidity))
+  {
+    ambientTemperatureHumidity.ambientHumidity = -1;
+  }
+  
   return ambientTemperatureHumidity;
 } 
 
@@ -277,11 +317,13 @@ void setupPump()
 void startPump()
 {
   digitalWrite(PUMP_PIN, HIGH);
+  pumpIsOn = 1;
 }
 
 void stopPump()
 {
   digitalWrite(PUMP_PIN, LOW);
+  pumpIsOn = 0;
 }
 
 boolean writeToSDCard(String fileName, String dataToWrite)
