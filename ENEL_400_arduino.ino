@@ -22,9 +22,7 @@
 #include <utility/Adafruit_MCP23017.h>
 
 #define BUZZER_PIN                                        4 // ???
-#define PUMP_PIN                                          12
-#define ESP8266_TX_ARDUINO_RX_PIN                         
-#define ESP8266_RX_ARDUINO_TX_PIN                             
+#define PUMP_PIN                                          12                           
 #define ESP8266_RESET_PIN                                     
 #define WATER_THERMOMETER_DALLAS_ONE_WIRE_PIN             5
 #define WATER_LEVEL_ANALOG_PIN                            A1 // ???
@@ -42,6 +40,10 @@
 
 #define SOFTWARE_SERIAL_ARDUINO_TX_OTHER_RX               9
 #define SOFTWARE_SERIAL_ARDUINO_RX_OTHER_TX               8
+
+#define C_STRING_BUFFER_SIZE                              250
+#include <assert.h>
+
 
 OneWire oneWire(WATER_THERMOMETER_DALLAS_ONE_WIRE_PIN);
 
@@ -77,7 +79,13 @@ Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
 #define VIOLET 0x5
 #define WHITE 0x7
 
-
+const char aquaponicsClubString[] PROGMEM = {"Aquaponics Club"};
+const char initializedSDCardString[] PROGMEM = {"Initialized SD Card."};
+const char initializedRTCString[] PROGMEM = {"Initialized the RTC."};
+const char failedInitializeSDCardString[] PROGMEM = {"Failed to initialize SD Card."};
+const char failedInitializeRTCString[] PROGMEM = {"Failed to initialize the RTC."};
+const char failedTemperatureHumidityString[] PROGMEM = {"Ambient Temperature and Humidity Sensor Not Working!!!"};
+const char failedLogWriteString[] PROGMEM = {"Cannot write to " LOG_FILE_NAME};
 
 void setup() {
   Serial.begin(9600);
@@ -94,25 +102,25 @@ void setup() {
   
   setupWaterTemperatureSensor();
 
-  lcd.print("Hello, world!");
+  lcd.print(aquaponicsClubString);
   lcd.setBacklight(WHITE);
   
   if (setupSDCard())
-    Serial.println("Initialized SD Card.");
+    Serial.println(initializedSDCardString);
   else
-    Serial.println("Failed to initialize SD Card.");
+    Serial.println(failedInitializeSDCardString);
 
   setupAmbientTemperatureAndHumidity();
   
   if (setupRTC())
   {
-    Serial.println("Initialized the RTC.");
+    Serial.println(initializedRTCString);
     setRTCTime();
   }
   else
   {
-    Serial.println("Failed to initialize the RTC.");
-    writeToSDCardLog("Failed to initialize the RTC.");
+    Serial.println(failedInitializeRTCString);
+    writeToSDCardLog(failedInitializeRTCString);
   }
 
 }
@@ -125,30 +133,30 @@ void loop() {
   //Serial.println("Water Temp:\t" + (String)waterTemperature + "degC");
 
   AmbientTemperatureHumidity ambientTemperatureHumidity = readAmbientTemperatureAndHumidity();
-  /*if (ambientTemperatureHumidity.valid)
+  if (ambientTemperatureHumidity.valid)
   {
     Serial.println((String)ambientTemperatureHumidity.ambientTemperature + "degC\t" + (String)ambientTemperatureHumidity.ambientHumidity + "%");
   }
   else
   {
-    Serial.println("Ambient Temperature and Humidity Sensor Not Working!!!");
-    writeToSDCardLog("Ambient Temperature and Humidity Sensor Not Working!!!");
+    Serial.println(failedTemperatureHumidityString);
+    writeToSDCardLog(failedTemperatureHumidityString);
   }
-  */
+  
   String Time = getRTCStringTime();
   //Serial.println(Time);
-  /*
+  
   if (!writeToSDCard(DATA_FILE_NAME, "Greatness!!!"))
   {
     Serial.println("Cannot write to " + (String)DATA_FILE_NAME);
   }
-  */
+  
   int visibleLight = getVisibleLight();
-  /*
+  
   Serial.println("Visible light: " + (String)visibleLight + " lux");
 
   Serial.println("IR light: " + (String)getIRLight() + " lux");
-  */
+  
   int waterLevelResistance = waterLevelSensorResistance();
 
   
@@ -207,7 +215,7 @@ bool writeToSDCardLog(String input)
 {
   if (writeToSDCard(LOG_FILE_NAME, input))
     return true;
-  Serial.println("Cannot write to " + (String)LOG_FILE_NAME);
+  Serial.println(failedLogWriteString);
   return false;
 }
 
