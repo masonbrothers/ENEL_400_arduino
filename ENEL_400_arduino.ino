@@ -103,6 +103,7 @@ const char failedInitializeSDCardString[] PROGMEM = {"Failed to initialize SD Ca
 const char failedInitializeRTCString[] PROGMEM = {"Failed to initialize the RTC."};
 const char failedTemperatureHumidityString[] PROGMEM = {"Ambient Temperature and Humidity Sensor Not Working!!!"};
 const char failedLogWriteString[] PROGMEM = {"Cannot write to " LOG_FILE_NAME};
+const char aquaponicsSystem[] PROGMEM = {"Aquaponics System"};
 
 void setup() {
   Serial.begin(9600);
@@ -170,14 +171,16 @@ void loop() {
 
   AmbientTemperatureHumidity ambientTemperatureHumidity = readAmbientTemperatureAndHumidity();
 
-  printToScreens("Water: ", waterTemperature, "C");
+  unsigned long unixTime = rtc.now().unixtime();
   
+#ifdef WEB_INTERFACE_MODE
+  printToESP("p:" + (String)(int)pumpIsOn); //pumpIsOn
+#endif
 
-  
-  
   if (ambientTemperatureHumidity.valid)
   {
     printToScreens("Air Temp: ", ambientTemperatureHumidity.ambientTemperature, "C");
+    delay(2000);
     printToScreens("Air Hum: ", ambientTemperatureHumidity.ambientHumidity, "%");
   }
   #ifdef SERIAL_DEBUG_MODE
@@ -187,25 +190,16 @@ void loop() {
     writeToSDCardLog(failedTemperatureHumidityString);
   }
   #endif
+ 
+  printToESP("h:" + (String)ambientTemperatureHumidity.ambientHumidity); //ambientHumidity
+
+  printToESP("a:" + (String)ambientTemperatureHumidity.ambientTemperature); //ambientTemperature
   
   printToScreens("Light: ", visibleLight, "lux");
 
-  //Serial.println("IR light: " + (String)getIRLight() + " lux");
-
-
-
-  unsigned long unixTime = rtc.now().unixtime();
-  
-#ifdef WEB_INTERFACE_MODE
-  //printToESP((String)deviceName);
-
-  printToESP("p:" + (String)(int)pumpIsOn); //pumpIsOn
-  
-  printToESP("h:" + (String)ambientTemperatureHumidity.ambientHumidity); //ambientHumidity
-  
   printToESP("l:" + (String)visibleLight); //ambientLight
   
-  printToESP("a:" + (String)ambientTemperatureHumidity.ambientTemperature); //ambientTemperature
+  
   
   //printToESP("spillSensor:" + (String)(int)spillSensor);
   
@@ -214,11 +208,16 @@ void loop() {
   printToESP("e:" + (String)waterLevelResistance); //waterLevel
   
   printToESP("w:" + (String)waterTemperature); // waterTemperature
+  
+  printToScreens("Water: ", waterTemperature, "C");
+  
   printTimeToScreens();
+  printToScreens(aquaponicsSystem);
   getFromESP();
   
 
-#endif
+
+
   writeToSDCard(DATA_FILE_NAME, pumpIsOn + '\t' + (String)ambientTemperatureHumidity.ambientHumidity + '\t' + (String)visibleLight + '\t' + (String)visibleLight + '\t' + (String)ambientTemperatureHumidity.ambientTemperature + '\t' + (String)unixTime + '\t' + (String)waterLevelResistance + '\t' + (String)waterTemperature);
  // counter++;
  // if (counter == UNSIGNED_LONG_MAX)
@@ -262,6 +261,18 @@ void printTimeToScreens()
   #endif
 }
 void printToScreens(String input)
+{
+  #ifdef SERIAL_DEBUG_MODE
+  Serial.println(input);
+  #endif
+  #ifdef LCD_MODE
+  lcd.clear();
+  lcd.print(input);
+  #endif
+}
+
+
+void printToScreens(char *input)
 {
   #ifdef SERIAL_DEBUG_MODE
   Serial.println(input);
