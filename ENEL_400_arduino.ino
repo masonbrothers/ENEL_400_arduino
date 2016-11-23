@@ -205,7 +205,7 @@ void loop() {
   
   printToESP("t:" + (String)unixTime); //time
   
-  printToESP("e:" + (String)waterLevelResistance); //waterLevel
+  printToESP("v:" + (String)waterLevelResistance); //waterLevel
   
   printToESP("w:" + (String)waterTemperature); // waterTemperature
   
