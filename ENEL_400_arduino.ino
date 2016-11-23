@@ -1,3 +1,11 @@
+#define DEPLOY_MODE  //Note that to set the time on the Real Time Clock, we need to run it with DEPLOY_MODE off.
+
+//#define SERIAL_DEBUG_MODE
+
+#define LCD_MODE
+#define WEB_INTERFACE_MODE
+
+
 // For Water Temperature Probe
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -23,7 +31,7 @@
 
 #define BUZZER_PIN                                        4 // ???
 #define PUMP_PIN                                          12                           
-#define ESP8266_RESET_PIN                                     
+#define ESP8266_RESET_PIN                                 
 #define WATER_THERMOMETER_DALLAS_ONE_WIRE_PIN             5
 #define WATER_LEVEL_ANALOG_PIN                            A1 // ???
 #define WATER_LEVEL_RESISTOR_VALUE                        560 // Value of the resistor added in ohms    
@@ -34,9 +42,11 @@
 #define AMBIENT_TEMPERATURE_HUMIDITY_SENSOR_TYPE          DHT22
 #define LUMINOSITY_SCL_PIN                                A5
 #define LUMINOSITY_SDA_PIN                                A4
-#define DATA_FILE_NAME                                    "AQUADATA.TXT"
-#define LOG_FILE_NAME                                     "AQUALOG.TXT"
+#define DATA_FILE_NAME                                    "DATA.TXT"
+#define LOG_FILE_NAME                                     "LOG.TXT"
 #define TSL2591_NUMBER                                    2591
+
+#define UNSIGNED_LONG_MAX                                 2147483647
 
 #define SOFTWARE_SERIAL_ARDUINO_TX_OTHER_RX               9
 #define SOFTWARE_SERIAL_ARDUINO_RX_OTHER_TX               8
@@ -64,12 +74,17 @@ struct AmbientTemperatureHumidity
   boolean valid;
 };
 
+// unsigned long counter = 0;
 
 boolean validAmbientTemperatureHumidity = true; //Boolean to detect whether or not Reading was valid
 
 boolean pumpIsOn;
 
+boolean pumpShouldBeOn;
+
+#ifdef LCD_MODE
 Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
+#endif
 
 #define RED 0x1
 #define YELLOW 0x3
@@ -78,6 +93,8 @@ Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
 #define BLUE 0x4
 #define VIOLET 0x5
 #define WHITE 0x7
+
+#include <avr/pgmspace.h>
 
 const char aquaponicsClubString[] PROGMEM = {"Aquaponics Club"};
 const char initializedSDCardString[] PROGMEM = {"Initialized SD Card."};
@@ -91,7 +108,10 @@ void setup() {
   Serial.begin(9600);
   esp8266Serial.begin(9600);
 
-  
+#ifdef LCD_MODE
+  lcd.begin(16, 2);
+#endif
+
   setupBuzzer();
   stopBuzzer();
   
@@ -101,25 +121,36 @@ void setup() {
   setupLightSensor();
   
   setupWaterTemperatureSensor();
-
-  lcd.print(aquaponicsClubString);
+#ifdef LCD_MODE
+  //lcd.print((String)counter);
   lcd.setBacklight(WHITE);
-  
+#endif
+  #ifdef SERIAL_DEBUG_MODE
   if (setupSDCard())
     Serial.println(initializedSDCardString);
   else
     Serial.println(failedInitializeSDCardString);
-
+  #else
+  setupSDCard();
+  #endif
+  
+  
   setupAmbientTemperatureAndHumidity();
   
   if (setupRTC())
   {
+    #ifdef SERIAL_DEBUG_MODE
     Serial.println(initializedRTCString);
-    setRTCTime();
+    #endif
+    #ifndef DEPLOY_MODE
+    setRTCTime(); //TODO -- ONLY RUN THIS WHEN TESTING. AFTER LOADING UP, need to get rid of this.
+    #endif
   }
   else
   {
+    #ifdef SERIAL_DEBUG_MODE
     Serial.println(failedInitializeRTCString);
+    #endif
     writeToSDCardLog(failedInitializeRTCString);
   }
 
@@ -129,50 +160,129 @@ void loop() {
 
   delay(2000);
 
+
+  
   float waterTemperature = getWaterTemperature();
-  //Serial.println("Water Temp:\t" + (String)waterTemperature + "degC");
+
+  int visibleLight = getVisibleLight();
+  int waterLevelResistance = waterLevelSensorResistance();
+  
 
   AmbientTemperatureHumidity ambientTemperatureHumidity = readAmbientTemperatureAndHumidity();
+
+  printToScreens("Water: ", waterTemperature, "C");
+  
+
+  
+  
   if (ambientTemperatureHumidity.valid)
   {
-    Serial.println((String)ambientTemperatureHumidity.ambientTemperature + "degC\t" + (String)ambientTemperatureHumidity.ambientHumidity + "%");
+    printToScreens("Air Temp: ", ambientTemperatureHumidity.ambientTemperature, "C");
+    printToScreens("Air Hum: ", ambientTemperatureHumidity.ambientHumidity, "%");
   }
+  #ifdef SERIAL_DEBUG_MODE
   else
   {
     Serial.println(failedTemperatureHumidityString);
     writeToSDCardLog(failedTemperatureHumidityString);
   }
+  #endif
   
-  String Time = getRTCStringTime();
-  //Serial.println(Time);
-  
-  if (!writeToSDCard(DATA_FILE_NAME, "Greatness!!!"))
-  {
-    Serial.println("Cannot write to " + (String)DATA_FILE_NAME);
-  }
-  
-  int visibleLight = getVisibleLight();
-  
-  Serial.println("Visible light: " + (String)visibleLight + " lux");
+  printToScreens("Light: ", visibleLight, "lux");
 
-  Serial.println("IR light: " + (String)getIRLight() + " lux");
-  
-  int waterLevelResistance = waterLevelSensorResistance();
+  //Serial.println("IR light: " + (String)getIRLight() + " lux");
 
+
+
+  unsigned long unixTime = rtc.now().unixtime();
   
-  printToESP("pumpIsOn:" + (String)(int)pumpIsOn);
-  printToESP("realTimeAmbientHumidity:" + (String)ambientTemperatureHumidity.ambientHumidity);
-  printToESP("realTimeAmbientLight:" + (String)visibleLight);
-  printToESP("realTimeAmbientTemperature:" + (String)ambientTemperatureHumidity.ambientTemperature);
-  //esp8266Serial.print("realTimeSpillSensor:" + (String)visibleLight);
-  printToESP("realTimeTime:" + Time);
-  printToESP("realTimeWaterLevel:" + (String)waterLevelResistance);
-  printToESP("realTimeWaterTemperature:" + (String)waterTemperature);
-  esp8266Serial.print("PUMP");
+#ifdef WEB_INTERFACE_MODE
+  //printToESP((String)deviceName);
+
+  printToESP("p:" + (String)(int)pumpIsOn); //pumpIsOn
+  
+  printToESP("h:" + (String)ambientTemperatureHumidity.ambientHumidity); //ambientHumidity
+  
+  printToESP("l:" + (String)visibleLight); //ambientLight
+  
+  printToESP("a:" + (String)ambientTemperatureHumidity.ambientTemperature); //ambientTemperature
+  
+  //printToESP("spillSensor:" + (String)(int)spillSensor);
+  
+  printToESP("t:" + (String)unixTime); //time
+  
+  printToESP("e:" + (String)waterLevelResistance); //waterLevel
+  
+  printToESP("w:" + (String)waterTemperature); // waterTemperature
+  printTimeToScreens();
+  getFromESP();
+  
+
+#endif
+  writeToSDCard(DATA_FILE_NAME, pumpIsOn + '\t' + (String)ambientTemperatureHumidity.ambientHumidity + '\t' + (String)visibleLight + '\t' + (String)visibleLight + '\t' + (String)ambientTemperatureHumidity.ambientTemperature + '\t' + (String)unixTime + '\t' + (String)waterLevelResistance + '\t' + (String)waterTemperature);
+ // counter++;
+ // if (counter == UNSIGNED_LONG_MAX)
+ //   counter = 0;
+}
+
+void getFromESP()
+{
+  esp8266Serial.print("P");
   if (esp8266Serial.available()) {
-    Serial.write(esp8266Serial.read());
+    pumpShouldBeOn = (boolean)getESPSerialInt();
   }
-  
+  if (pumpShouldBeOn)
+    startPump();
+  else
+    stopPump();
+
+  /*
+  esp8266Serial.print("C");
+  if (esp8266Serial.available()) {
+    counter = getESPSerialInt();
+  }
+  */
+}
+
+int getESPSerialInt()
+{
+  return esp8266Serial.readString().toInt();
+}
+
+void printTimeToScreens()
+{
+  String Time = getRTCStringTime();
+
+  #ifdef SERIAL_DEBUG_MODE
+  Serial.println(Time);
+  #endif
+  #ifdef LCD_MODE
+  lcd.clear();
+  lcd.print(Time);
+  #endif
+}
+void printToScreens(String input)
+{
+  #ifdef SERIAL_DEBUG_MODE
+  Serial.println(input);
+  #endif
+  #ifdef LCD_MODE
+  lcd.clear();
+  lcd.print(input);
+  #endif
+}
+
+void printToScreens(char *type, float input, char *unit)
+{
+  String output = type + (String)input + unit;
+
+  #ifdef SERIAL_DEBUG_MODE
+  Serial.println(output);
+  #endif
+  #ifdef LCD_MODE
+  lcd.clear();
+  lcd.print(output);
+  #endif
 }
 
 bool printToESP(String input) {
@@ -361,5 +471,12 @@ boolean writeToSDCard(String fileName, String dataToWrite)
     dataFile.close();
     return true;
   }
+  #ifdef SERIAL_DEBUG_MODE
+  else
+  {
+    Serial.println("Cannot write to " + (String)DATA_FILE_NAME);
+  }
+  #endif
+  
   return false;
 }
