@@ -1,6 +1,6 @@
-#define DEPLOY_MODE  //Note that to set the time on the Real Time Clock, we need to run it with DEPLOY_MODE off.
+//#define DEPLOY_MODE  //Note that to set the time on the Real Time Clock, we need to run it with DEPLOY_MODE off.
 
-//#define SERIAL_DEBUG_MODE
+#define SERIAL_DEBUG_MODE
 
 #define LCD_MODE
 #define WEB_INTERFACE_MODE
@@ -113,8 +113,8 @@ void setup() {
   lcd.begin(16, 2);
 #endif
 
-  setupBuzzer();
-  stopBuzzer();
+  //setupBuzzer();
+  //stopBuzzer();
   
   setupPump();
   startPump();
@@ -124,7 +124,7 @@ void setup() {
   setupWaterTemperatureSensor();
 #ifdef LCD_MODE
   //lcd.print((String)counter);
-  lcd.setBacklight(WHITE);
+  lcd.setBacklight(GREEN);
 #endif
   #ifdef SERIAL_DEBUG_MODE
   if (setupSDCard())
@@ -226,15 +226,21 @@ void loop() {
 
 void getFromESP()
 {
-  esp8266Serial.print("P");
+  esp8266Serial.print("U");
+  delay(4000);
   if (esp8266Serial.available()) {
     pumpShouldBeOn = (boolean)getESPSerialInt();
   }
   if (pumpShouldBeOn)
+  {
     startPump();
+    lcd.setBacklight(GREEN);
+  }
   else
+  {
     stopPump();
-
+    setBacklight(RED);
+  }
   /*
   esp8266Serial.print("C");
   if (esp8266Serial.available()) {
