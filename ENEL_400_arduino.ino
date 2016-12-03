@@ -30,7 +30,7 @@
 #include <utility/Adafruit_MCP23017.h>
 
 #define BUZZER_PIN                                        4 // ???
-#define PUMP_PIN                                          12                           
+#define PUMP_PIN                                          6                           
 #define ESP8266_RESET_PIN                                 
 #define WATER_THERMOMETER_DALLAS_ONE_WIRE_PIN             5
 #define WATER_LEVEL_ANALOG_PIN                            A1 // ???
@@ -78,7 +78,7 @@ struct AmbientTemperatureHumidity
 
 boolean validAmbientTemperatureHumidity = true; //Boolean to detect whether or not Reading was valid
 
-boolean pumpIsOn;
+boolean pumpIsOn; 
 
 boolean pumpShouldBeOn;
 
@@ -93,6 +93,7 @@ Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
 #define BLUE 0x4
 #define VIOLET 0x5
 #define WHITE 0x7
+
 
 #include <avr/pgmspace.h>
 
@@ -158,7 +159,7 @@ void setup() {
 }
 
 void loop() {
-
+  printToScreens("AquaponicsSystem");
   delay(2000);
 
 
@@ -166,8 +167,8 @@ void loop() {
   float waterTemperature = getWaterTemperature();
 
   int visibleLight = getVisibleLight();
-  int waterLevelResistance = waterLevelSensorResistance();
-  
+  //int waterLevelResistance = waterLevelSensorResistance();
+  float waterLevelSensor = getWaterLevelSensor();
 
   AmbientTemperatureHumidity ambientTemperatureHumidity = readAmbientTemperatureAndHumidity();
 
@@ -203,22 +204,27 @@ void loop() {
   
   //printToESP("spillSensor:" + (String)(int)spillSensor);
   
-  printToESP("t:" + (String)unixTime); //time
-  
-  printToESP("v:" + (String)waterLevelResistance); //waterLevel
+  printToESP("v:" + (String)waterLevelSensor); //waterLevel
+
+  printToScreens("Level: ", waterLevelSensor, "cm");
   
   printToESP("w:" + (String)waterTemperature); // waterTemperature
-  
+
+  delay(1000);
+    
   printToScreens("Water: ", waterTemperature, "C");
+
+  printToESP("t:" + (String)unixTime); //time
   
   printTimeToScreens();
-  printToScreens(aquaponicsSystem);
+  
   getFromESP();
   
 
+  String temp = pumpIsOn + '\t' + (String)ambientTemperatureHumidity.ambientHumidity + '\t' + (String)visibleLight + '\t' + (String)ambientTemperatureHumidity.ambientTemperature + '\t' + (String)unixTime + '\t' + (String)waterLevelSensor + '\t' + (String)waterTemperature;
 
-
-  writeToSDCard(DATA_FILE_NAME, pumpIsOn + '\t' + (String)ambientTemperatureHumidity.ambientHumidity + '\t' + (String)visibleLight + '\t' + (String)visibleLight + '\t' + (String)ambientTemperatureHumidity.ambientTemperature + '\t' + (String)unixTime + '\t' + (String)waterLevelResistance + '\t' + (String)waterTemperature);
+  
+  writeToSDCard(DATA_FILE_NAME, temp);
  // counter++;
  // if (counter == UNSIGNED_LONG_MAX)
  //   counter = 0;
@@ -226,20 +232,33 @@ void loop() {
 
 void getFromESP()
 {
-  esp8266Serial.print("U");
+  //esp8266Serial.flush();
+  //flushESPSerial();
+  int fourtyTwo = 42;
+  printToESP("U:42");
+  //printToESP("U:" + (String)fourtyTwo); //time
   delay(4000);
   if (esp8266Serial.available()) {
-    pumpShouldBeOn = (boolean)getESPSerialInt();
+    String test = esp8266Serial.readString();
+    Serial.println("String");
+    Serial.println(test);
+    pumpShouldBeOn = (boolean)test.toInt();
+    Serial.println("HIT");
   }
+  //pumpShouldBeOn = 1; // REMOVE IN PRODUCTION
   if (pumpShouldBeOn)
   {
+    Serial.println("Pump On");
+    Serial.print(pumpShouldBeOn);
     startPump();
     lcd.setBacklight(GREEN);
   }
   else
   {
+    Serial.println("Pump Off");
+    Serial.print(pumpShouldBeOn);
     stopPump();
-    setBacklight(RED);
+    lcd.setBacklight(RED);
   }
   /*
   esp8266Serial.print("C");
@@ -249,9 +268,11 @@ void getFromESP()
   */
 }
 
-int getESPSerialInt()
+void flushESPSerial()
 {
-  return esp8266Serial.readString().toInt();
+  while(esp8266Serial.available() > 0) {
+    char t = esp8266Serial.read();
+  }
 }
 
 void printTimeToScreens()
@@ -316,7 +337,7 @@ bool printToESP(String input) {
   }
   */
   delay(4000);
-  esp8266Serial.println(input);
+  esp8266Serial.print(input);
   
   
   return 0;
@@ -446,19 +467,14 @@ float waterLevelSensorResistance()
   return value;
 }
 
-void setupBuzzer()
+float getWaterLevelSensor()
 {
-  pinMode(BUZZER_PIN, OUTPUT);
-}
-
-void startBuzzer()
-{
-  digitalWrite(BUZZER_PIN, HIGH);
-}
-
-void stopBuzzer()
-{
-  digitalWrite(BUZZER_PIN, LOW);
+  int sensorValue = analogRead(WATER_LEVEL_ANALOG_PIN);
+  // print out the value you read:
+  double sensorValue_double = (double) sensorValue;
+  double depth_estimate_2nd_order = -0.00013305*pow(sensorValue_double,2)+0.2613*sensorValue_double-95.309;
+  Serial.println("analog reading:" + (String)sensorValue + " " + "estimated depth:" + (String)depth_estimate_2nd_order+"cm" );
+  return depth_estimate_2nd_order;
 }
 
 void setupPump()
