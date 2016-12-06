@@ -1,4 +1,4 @@
-//#define DEPLOY_MODE  //Note that to set the time on the Real Time Clock, we need to run it with DEPLOY_MODE off.
+#define DEPLOY_MODE  //Note that to set the time on the Real Time Clock, we need to run it with DEPLOY_MODE off.
 
 #define SERIAL_DEBUG_MODE
 
@@ -117,15 +117,16 @@ void setup() {
   //setupBuzzer();
   //stopBuzzer();
   
+  stopPump();
   setupPump();
-  startPump();
+
 
   setupLightSensor();
   
   setupWaterTemperatureSensor();
 #ifdef LCD_MODE
   //lcd.print((String)counter);
-  lcd.setBacklight(GREEN);
+  lcd.setBacklight(RED);
 #endif
   #ifdef SERIAL_DEBUG_MODE
   if (setupSDCard())
@@ -251,14 +252,18 @@ void getFromESP()
     Serial.println("Pump On");
     Serial.print(pumpShouldBeOn);
     startPump();
+    #ifdef LCD_MODE
     lcd.setBacklight(GREEN);
+    #endif
   }
   else
   {
     Serial.println("Pump Off");
     Serial.print(pumpShouldBeOn);
     stopPump();
+    #ifdef LCD_MODE
     lcd.setBacklight(RED);
+    #endif
   }
   /*
   esp8266Serial.print("C");
@@ -336,7 +341,7 @@ bool printToESP(String input) {
     return 1;
   }
   */
-  delay(4000);
+  delay(4242);
   esp8266Serial.print(input);
   
   
@@ -397,7 +402,7 @@ DateTime getRTCTime()
 String getRTCStringTime()
 {
   DateTime now = getRTCTime();
-  String output = (int)now.year() + (String)"-" + addPrecedingZero(now.dayOfTheWeek()) + (String)"-" + addPrecedingZero(now.day()) + (String)"T" + addPrecedingZero(now.hour()) + (String)":" + addPrecedingZero(now.minute()) + (String)":" + addPrecedingZero(now.second());
+  String output = (int)now.year() + (String)"-" + addPrecedingZero(now.month()) + (String)"-" + addPrecedingZero(now.day()) + (String)"T" + addPrecedingZero(now.hour()) + (String)":" + addPrecedingZero(now.minute()) + (String)":" + addPrecedingZero(now.second());
   return output;
 }
 
